@@ -1,7 +1,7 @@
 package watchdog
 
 import (
-	"fmt"
+	"sync"
 	"time"
 )
 
@@ -28,6 +28,8 @@ type Watchdog struct {
 	tasks []*Task
 
 	done chan bool
+	sync sync.WaitGroup
+
 	executions chan *Execution
 	stalls chan *Stall
 }
@@ -53,11 +55,12 @@ func (w *Watchdog) Stalls() <- chan *Stall {
 
 func (w *Watchdog) run() {
 	for _, task := range w.tasks {
-		go runTask(task, w.executions, w.stalls, w.done)
+		go w.runTask(task)
 	}
+	w.sync.Add(len(w.tasks))
 }
 
-func runTask(task *Task, executions chan <- *Execution, stalls chan <- *Stall, done <- chan bool) {
+func (w *Watchdog) runTask(task *Task) {
 	ticker := time.NewTicker(task.Schedule)
 	schedule := make(chan time.Time, 1)
 	stallTimer := time.NewTimer(task.Timeout)
@@ -67,14 +70,14 @@ func runTask(task *Task, executions chan <- *Execution, stalls chan <- *Stall, d
 			err := task.Command(startedAt)
 			finishedAt := time.Now()
 			if onTime := stallTimer.Reset(task.Schedule); onTime {
-				executions <- &Execution{task, startedAt, finishedAt, err}
+				w.executions <- &Execution{task, startedAt, finishedAt, err}
 			}
 		}
 	}()
 	loop: for {
 		var startedAt time.Time
 		select {
-		case <- done:
+		case <- w.done:
 			ticker.Stop()
 			stallTimer.Stop()
 			break loop
@@ -84,13 +87,19 @@ func runTask(task *Task, executions chan <- *Execution, stalls chan <- *Stall, d
 			default:
 			}
 		case stalledAt := <- stallTimer.C:
-			stalls <- &Stall{task, startedAt, stalledAt}
+			w.stalls <- &Stall{task, startedAt, stalledAt}
 		}
 	}
 	close(schedule)
 	stallTimer.Stop()
+	w.sync.Done()
 }
 
 func (w *Watchdog) Stop() {
 	close(w.done)
+	go func() {
+		w.sync.Wait()
+		close(w.executions)
+		close(w.stalls)
+	}()
 }
