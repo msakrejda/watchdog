@@ -97,9 +97,7 @@ func (w *Watchdog) runTask(task *Task) {
 
 func (w *Watchdog) Stop() {
 	close(w.done)
-	go func() {
-		w.sync.Wait()
-		close(w.executions)
-		close(w.stalls)
-	}()
+	w.sync.Wait()
+	close(w.executions)
+	close(w.stalls)
 }
