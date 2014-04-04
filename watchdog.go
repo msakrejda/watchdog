@@ -69,18 +69,23 @@ func (w *Watchdog) runTask(task *Task) {
 			stallTimer.Reset(task.Timeout)
 			err := task.Command(startedAt)
 			finishedAt := time.Now()
+			select {
+			case <- w.done:
+				return
+			default:
+			}
 			if onTime := stallTimer.Reset(task.Schedule); onTime {
 				w.executions <- &Execution{task, startedAt, finishedAt, err}
 			}
 		}
 	}()
-	loop: for {
+	monitor: for {
 		var startedAt time.Time
 		select {
 		case <- w.done:
 			ticker.Stop()
 			stallTimer.Stop()
-			break loop
+			break monitor
 		case startedAt = <- ticker.C:
 			select {
 			case schedule <- startedAt:
