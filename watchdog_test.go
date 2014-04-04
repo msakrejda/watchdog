@@ -1,6 +1,7 @@
 package watchdog
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -44,6 +45,50 @@ var workloads = []struct{
 			},
 		},
 	},
+	{
+		Tasks: []taskInfo{
+			{
+				Schedule: 10 * time.Millisecond,
+				Timeout: 1 * time.Hour,
+				Executions: []execInfo{
+					{Error: nil, Duration: time.Millisecond},
+					{Error: errors.New("oh snap"), Duration: time.Millisecond},
+					{Error: nil, Duration: time.Millisecond},
+				},
+			},
+		},
+	},
+	{
+		Tasks: []taskInfo{
+			{
+				Schedule: 12 * time.Millisecond,
+				Timeout: 1 * time.Hour,
+				Executions: []execInfo{
+					{Error: errors.New("oh snap"), Duration: time.Millisecond},
+					{Error: nil, Duration: time.Millisecond},
+				},
+			},
+			{
+				Schedule: 7 * time.Millisecond,
+				Timeout: 1 * time.Hour,
+				Executions: []execInfo{
+					{Error: errors.New("oh snap"), Duration: time.Millisecond},
+					{Error: nil, Duration: time.Millisecond},
+					{Error: errors.New("oh snap"), Duration: time.Millisecond},
+					{Error: nil, Duration: time.Millisecond},
+				},
+			},
+			{
+				Schedule: 9 * time.Millisecond,
+				Timeout: 1 * time.Hour,
+				Executions: []execInfo{
+					{Error: nil, Duration: time.Millisecond},
+					{Error: errors.New("oh snap"), Duration: time.Millisecond},
+					{Error: nil, Duration: time.Millisecond},
+				},
+			},
+		},
+	},
 }
 
 func drainExecutions(execs map[*Task][]*Execution, execCh <- chan *Execution, done chan <- bool) {
@@ -71,22 +116,32 @@ func TestScheduling(t *testing.T) {
 		tasks := make([]*Task, len(workload.Tasks))
 		taskMap := make(map[*Task]*taskInfo)
 		for j, proto := range workload.Tasks {
+			// N.B.: We need to copy the reference since
+			// we close over it and proto is a loop
+			// variable so the original reference will be
+			// reassigned in the next loop iteration
+			taskProto := proto
 			task := &Task{
-				Schedule: proto.Schedule,
-				Timeout: proto.Timeout,
+				Schedule: taskProto.Schedule,
+				Timeout: taskProto.Timeout,
 			}
-			// N.B.: Can't assign inline, since it
+			// N.B.: Can't assign command inline, since it
 			// references task itself
-			task.Command = func(t time.Time) error {
+			task.Command = func(ts time.Time) error {
+				execs := taskProto.Executions
 				execCount := execCounts[task]
-				exec := proto.Executions[execCount]
+				if expected := len(execs); execCount >= expected {
+					t.Fatalf("workload %d task %v: expected %v executions; got more at %v",
+						i, task, expected, ts)
+				}
+				exec := execs[execCount]
 				time.Sleep(exec.Duration)
 				execCounts[task] += 1
 				return exec.Error
 			}
 
 			tasks[j] = task
-			taskMap[task] = &proto
+			taskMap[task] = &taskProto
 		}
 		execMap := make(map[*Task][]*Execution)
 		stallMap := make(map[*Task][]*Stall)
@@ -104,9 +159,8 @@ func TestScheduling(t *testing.T) {
 			for _, proto := range workload.Tasks {
 				// pad each task by half its schedule
 				currDuration := proto.Schedule / 2
-				for _, exec := range proto.Executions {
-					currDuration += exec.Duration
-				}
+				// N.B.: this is *not* accurate if an execution stalls
+				currDuration += proto.Schedule * time.Duration(len(proto.Executions))
 				if currDuration > duration {
 					duration = currDuration
 				}
