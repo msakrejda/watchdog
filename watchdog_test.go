@@ -89,6 +89,37 @@ var workloads = []struct{
 			},
 		},
 	},
+	{
+		Tasks: []taskInfo{
+			{
+				Schedule: 10 * time.Millisecond,
+				Timeout: 5 * time.Millisecond,
+				Executions: []execInfo{
+					{Error: nil, Duration: 7 * time.Millisecond},
+				},
+			},
+		},
+	},
+	{
+		Tasks: []taskInfo{
+			{
+				Schedule: 10 * time.Millisecond,
+				Timeout: 3 * time.Millisecond,
+				Executions: []execInfo{
+					{Error: nil, Duration: 4 * time.Millisecond},
+					{Error: nil, Duration: 1 * time.Millisecond},
+				},
+			},
+			{
+				Schedule: 10 * time.Millisecond,
+				Timeout: 2 * time.Millisecond,
+				Executions: []execInfo{
+					{Error: nil, Duration: 1 * time.Millisecond},
+					{Error: nil, Duration: 3 * time.Millisecond},
+				},
+			},
+		},
+	},
 }
 
 func drainExecutions(execs map[*Task][]*Execution, execCh <- chan *Execution, done chan <- bool) {
