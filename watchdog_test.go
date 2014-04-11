@@ -221,7 +221,7 @@ func TestScheduling(t *testing.T) {
 						i, task, j, exec.Task)
 					continue
 				}
-				slack := 1 * time.Millisecond
+				slack := 3 * time.Millisecond
 				stepDelay := time.Duration(j+1) * task.Schedule
 				if expected := start.Add(stepDelay); !within(expected, exec.StartedAt, slack) {
 					t.Errorf("workload %d task %v: expected execution %d start to be within %v of schedule; got within %v",
