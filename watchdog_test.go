@@ -2,6 +2,7 @@ package watchdog
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -109,6 +110,7 @@ var workloads = []struct{
 		},
 	},
 	{
+		// This test ensures we don't bail early on a stall during Stop()
 		WatchDuration: 12 * time.Millisecond,
 		Tasks: []taskInfo{
 			{
@@ -146,7 +148,7 @@ func TestScheduling(t *testing.T) {
 	for i, workload := range workloads {
 		execCounts := make(map[*Task]int)
 		tasks := make([]*Task, len(workload.Tasks))
-		taskMap := make(map[*Task]*taskInfo)
+		taskMap := make(map[*taskInfo]*Task)
 		for j, proto := range workload.Tasks {
 			// N.B.: We need to copy the reference since
 			// we close over it and proto is a loop
@@ -163,7 +165,7 @@ func TestScheduling(t *testing.T) {
 				execs := taskProto.Executions
 				execCount := execCounts[task]
 				if expected := len(execs); execCount >= expected {
-					t.Fatalf("workload %d task %v: expected %v executions; got more at %v",
+					return fmt.Errorf("workload %d task %v: expected %v executions; got more at %v",
 						i, task, expected, ts)
 				}
 				exec := execs[execCount]
@@ -173,7 +175,7 @@ func TestScheduling(t *testing.T) {
 			}
 
 			tasks[j] = task
-			taskMap[task] = &taskProto
+			taskMap[&taskProto] = task
 		}
 		execMap := make(map[*Task][]*Execution)
 		stallMap := make(map[*Task][]*Stall)
@@ -203,24 +205,22 @@ func TestScheduling(t *testing.T) {
 		<- done
 		<- done
 
-		for task, actual := range execCounts {
-			proto := taskMap[task]
-			if expected := len(proto.Executions); expected != actual {
+		for proto, task := range taskMap {
+			if expected, actual := len(proto.Executions), execCounts[task]; expected != actual {
 				t.Errorf("workload %d task %v: expected %d invocations; got %d",
 					i, task, expected, actual)
 			}
-		}
-
-		for task, execs := range execMap {
-			proto := taskMap[task]
+			execs := execMap[task]
 			if expected, actual := len(proto.Executions), len(execs); expected != actual {
 				t.Errorf("workload %d task %v: expected %d executions; got %d",
 					i, task, expected, actual)
+				continue
 			}
 			for j, exec := range execs {
 				if exec.Task != task {
 					t.Errorf("workload %d task %v: expected execution %d task reference to match; got %v",
 						i, task, j, exec.Task)
+					continue
 				}
 				slack := 1 * time.Millisecond
 				stepDelay := time.Duration(j + 1) * task.Schedule
@@ -242,16 +242,13 @@ func TestScheduling(t *testing.T) {
 						i, task, j, expected, exec.Error)
 				}
 			}
-		}
-		for task, stalls := range stallMap {
-			proto := taskMap[task]
 			expectedStalls := 0
 			for _, exec := range proto.Executions {
 				if exec.Duration > proto.Timeout {
 					expectedStalls += 1
 				}
 			}
-			if stallCount := len(stalls); stallCount != expectedStalls {
+			if stallCount := len(stallMap[task]); stallCount != expectedStalls {
 				t.Errorf("workload %d task %v: expected %v stalls; got %d",
 					i, task, expectedStalls, stallCount)
 			}
