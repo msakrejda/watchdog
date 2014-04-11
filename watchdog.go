@@ -1,29 +1,44 @@
 package watchdog
-
 import (
 	"sync"
 	"time"
 )
 
+// Basic scheduling unit
 type Task struct {
+	// How frequently the task should execute
 	Schedule time.Duration
+	// Function to invoke: each execution will be passed the time
+	// it was originally scheduled for (which may be behind
+	// wall-clock time in case of stalls).
 	Command func(time.Time) error
+	// How long to wait before considering an execution stalled
 	Timeout time.Duration
 }
 
+// Information about each execution
 type Execution struct {
+	// Task being executed
 	Task *Task
+	// Time the Task was originally scheduled for
 	StartedAt time.Time
+	// Time the Task completed
 	FinishedAt time.Time
+	// Error returned by the Task Command
 	Error error
 }
 
+// Information about each stall
 type Stall struct {
+	// Task which stalled
 	Task *Task
+	// Time the Task was originally scheduled for
 	StartedAt time.Time
+	// Time the task was considered stalled
 	StalledAt time.Time
 }
 
+// Execution monitor
 type Watchdog struct {
 	tasks []*Task
 
@@ -34,6 +49,7 @@ type Watchdog struct {
 	stalls chan *Stall
 }
 
+// Create a new, running watchdog with the given task(s).
 func Watch(tasks ...*Task) *Watchdog {
 	w := &Watchdog{
 		tasks: tasks,
@@ -45,10 +61,16 @@ func Watch(tasks ...*Task) *Watchdog {
 	return w
 }
 
+// Channel of executions for a given Watchdog. Note that the channel
+// must be drained promptly while the Watchdog is running: the channel
+// has a small buffer, but failure to keep up will apply backpressure
+// to the system and delay scheduling.
 func (w *Watchdog) Executions() <- chan *Execution {
 	return w.executions
 }
 
+// Channel of stalls for a given Watchdog. As above, the channel must
+// be drained while the Watchdog is running.
 func (w *Watchdog) Stalls() <- chan *Stall {
 	return w.stalls
 }
@@ -107,6 +129,9 @@ func (w *Watchdog) runTask(task *Task) {
 	w.sync.Done()
 }
 
+// Stop a running Watchdog. Waits for any currently-executing tasks to
+// complete, then closes the Executions and Stalls channels and
+// returns.
 func (w *Watchdog) Stop() {
 	close(w.done)
 	w.sync.Wait()
