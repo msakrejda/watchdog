@@ -1,4 +1,6 @@
-# watchdog - A simple function scheduler and monitor in Go
+# watchdog
+
+A simple function scheduler and monitor in Go
 
 [![Build Status](https://travis-ci.org/deafbybeheading/watchdog.png?branch=master)](https://travis-ci.org/deafbybeheading/watchdog)
 
