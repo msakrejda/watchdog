@@ -49,6 +49,7 @@ Here is a simple but functioning example:
 				fmt.Printf("execution %v stalled at %v\n",
 					executions + 1, stall.StalledAt)
 			case <- time.After(10 * time.Second):
+				w.Stop()
 				fmt.Println("done!")
 				break loop
 			}
