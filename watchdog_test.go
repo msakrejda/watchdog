@@ -17,18 +17,6 @@ type execInfo struct {
 	Duration time.Duration
 }
 
-
-// check
-//  + simple execution
-//  + multiple tasks
-//  - stalls
-//    - no duplicate stalls ?
-//  - recovery
-//  - stalls with multiple tasks
-//  - recovery with multiple tasks
-//  - multiple stalls with multiple tasks
-//  - multiple recoveries with multiple tasks
-
 var workloads = []struct{
 	WatchDuration time.Duration
 	Tasks []taskInfo
@@ -120,6 +108,19 @@ var workloads = []struct{
 			},
 		},
 	},
+	{
+		WatchDuration: 12 * time.Millisecond,
+		Tasks: []taskInfo{
+			{
+				Schedule: 10 * time.Millisecond,
+				Timeout: 7 * time.Millisecond,
+				Executions: []execInfo{
+					{Error: nil, Duration: 5 * time.Millisecond},
+				},
+			},
+		},
+	},
+
 }
 
 func drainExecutions(execs map[*Task][]*Execution, execCh <- chan *Execution, done chan <- bool) {
