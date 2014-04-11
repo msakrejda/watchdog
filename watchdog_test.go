@@ -8,25 +8,25 @@ import (
 )
 
 type taskInfo struct {
-	Schedule time.Duration
-	Timeout time.Duration
+	Schedule   time.Duration
+	Timeout    time.Duration
 	Executions []execInfo
 }
 
 type execInfo struct {
-	Error error
+	Error    error
 	Duration time.Duration
 }
 
-var workloads = []struct{
+var workloads = []struct {
 	WatchDuration time.Duration
-	Tasks []taskInfo
+	Tasks         []taskInfo
 }{
 	{
 		Tasks: []taskInfo{
 			{
 				Schedule: 10 * time.Millisecond,
-				Timeout: 1 * time.Hour,
+				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
 					{Error: nil, Duration: time.Millisecond},
 					{Error: nil, Duration: time.Millisecond},
@@ -38,7 +38,7 @@ var workloads = []struct{
 		Tasks: []taskInfo{
 			{
 				Schedule: 10 * time.Millisecond,
-				Timeout: 1 * time.Hour,
+				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
 					{Error: nil, Duration: time.Millisecond},
 					{Error: errors.New("oh snap"), Duration: time.Millisecond},
@@ -51,7 +51,7 @@ var workloads = []struct{
 		Tasks: []taskInfo{
 			{
 				Schedule: 12 * time.Millisecond,
-				Timeout: 1 * time.Hour,
+				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
 					{Error: errors.New("oh snap"), Duration: time.Millisecond},
 					{Error: nil, Duration: time.Millisecond},
@@ -59,7 +59,7 @@ var workloads = []struct{
 			},
 			{
 				Schedule: 7 * time.Millisecond,
-				Timeout: 1 * time.Hour,
+				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
 					{Error: errors.New("oh snap"), Duration: time.Millisecond},
 					{Error: nil, Duration: time.Millisecond},
@@ -69,7 +69,7 @@ var workloads = []struct{
 			},
 			{
 				Schedule: 9 * time.Millisecond,
-				Timeout: 1 * time.Hour,
+				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
 					{Error: nil, Duration: time.Millisecond},
 					{Error: errors.New("oh snap"), Duration: time.Millisecond},
@@ -82,7 +82,7 @@ var workloads = []struct{
 		Tasks: []taskInfo{
 			{
 				Schedule: 10 * time.Millisecond,
-				Timeout: 5 * time.Millisecond,
+				Timeout:  5 * time.Millisecond,
 				Executions: []execInfo{
 					{Error: nil, Duration: 7 * time.Millisecond},
 				},
@@ -93,7 +93,7 @@ var workloads = []struct{
 		Tasks: []taskInfo{
 			{
 				Schedule: 10 * time.Millisecond,
-				Timeout: 3 * time.Millisecond,
+				Timeout:  3 * time.Millisecond,
 				Executions: []execInfo{
 					{Error: nil, Duration: 4 * time.Millisecond},
 					{Error: nil, Duration: 1 * time.Millisecond},
@@ -101,7 +101,7 @@ var workloads = []struct{
 			},
 			{
 				Schedule: 10 * time.Millisecond,
-				Timeout: 2 * time.Millisecond,
+				Timeout:  2 * time.Millisecond,
 				Executions: []execInfo{
 					{Error: nil, Duration: 1 * time.Millisecond},
 					{Error: nil, Duration: 3 * time.Millisecond},
@@ -115,24 +115,23 @@ var workloads = []struct{
 		Tasks: []taskInfo{
 			{
 				Schedule: 10 * time.Millisecond,
-				Timeout: 7 * time.Millisecond,
+				Timeout:  7 * time.Millisecond,
 				Executions: []execInfo{
 					{Error: nil, Duration: 5 * time.Millisecond},
 				},
 			},
 		},
 	},
-
 }
 
-func drainExecutions(execs map[*Task][]*Execution, execCh <- chan *Execution, done chan <- bool) {
+func drainExecutions(execs map[*Task][]*Execution, execCh <-chan *Execution, done chan<- bool) {
 	for e := range execCh {
 		execs[e.Task] = append(execs[e.Task], e)
 	}
 	done <- true
 }
 
-func drainStalls(stalls map[*Task][]*Stall, stallCh <- chan *Stall, done chan <- bool) {
+func drainStalls(stalls map[*Task][]*Stall, stallCh <-chan *Stall, done chan<- bool) {
 	for s := range stallCh {
 		stalls[s.Task] = append(stalls[s.Task], s)
 	}
@@ -157,7 +156,7 @@ func TestScheduling(t *testing.T) {
 			taskProto := proto
 			task := &Task{
 				Schedule: taskProto.Schedule,
-				Timeout: taskProto.Timeout,
+				Timeout:  taskProto.Timeout,
 			}
 			// N.B.: Can't assign command inline, since it
 			// references task itself
@@ -200,10 +199,10 @@ func TestScheduling(t *testing.T) {
 				}
 			}
 		}
-		<- time.After(duration)
+		<-time.After(duration)
 		w.Stop()
-		<- done
-		<- done
+		<-done
+		<-done
 
 		for proto, task := range taskMap {
 			if expected, actual := len(proto.Executions), execCounts[task]; expected != actual {
@@ -223,7 +222,7 @@ func TestScheduling(t *testing.T) {
 					continue
 				}
 				slack := 1 * time.Millisecond
-				stepDelay := time.Duration(j + 1) * task.Schedule
+				stepDelay := time.Duration(j+1) * task.Schedule
 				if expected := start.Add(stepDelay); !within(expected, exec.StartedAt, slack) {
 					t.Errorf("workload %d task %v: expected execution %d start to be within %v of schedule; got within %v",
 						i, task, j, slack, exec.StartedAt.Sub(expected))
@@ -233,7 +232,7 @@ func TestScheduling(t *testing.T) {
 						i, task, j, exec.StartedAt, exec.FinishedAt)
 				}
 
-				if expected, duration := proto.Executions[j].Duration, exec.FinishedAt.Sub(exec.StartedAt); duration > expected + slack || duration < expected - slack {
+				if expected, duration := proto.Executions[j].Duration, exec.FinishedAt.Sub(exec.StartedAt); duration > expected+slack || duration < expected-slack {
 					t.Errorf("workload %d task %v: expected execution %d to run for %v±%v; got %v",
 						i, task, j, expected, slack, exec.FinishedAt.Sub(exec.StartedAt))
 				}
@@ -262,7 +261,6 @@ func TestScheduling(t *testing.T) {
 				maxFreq = task.Schedule
 			}
 		}
-		<- time.After(maxFreq)
+		<-time.After(maxFreq)
 	}
 }
-

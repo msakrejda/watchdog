@@ -1,4 +1,5 @@
 package watchdog
+
 import (
 	"sync"
 	"time"
@@ -46,16 +47,16 @@ type Watchdog struct {
 	sync sync.WaitGroup
 
 	executions chan *Execution
-	stalls chan *Stall
+	stalls     chan *Stall
 }
 
 // Create a new, running watchdog with the given task(s).
 func Watch(tasks ...*Task) *Watchdog {
 	w := &Watchdog{
-		tasks: tasks,
-		done: make(chan bool),
+		tasks:      tasks,
+		done:       make(chan bool),
 		executions: make(chan *Execution, 10),
-		stalls: make(chan *Stall, 10),
+		stalls:     make(chan *Stall, 10),
 	}
 	go w.run()
 	return w
@@ -65,13 +66,13 @@ func Watch(tasks ...*Task) *Watchdog {
 // must be drained promptly while the Watchdog is running: the channel
 // has a small buffer, but failure to keep up will apply backpressure
 // to the system and delay scheduling.
-func (w *Watchdog) Executions() <- chan *Execution {
+func (w *Watchdog) Executions() <-chan *Execution {
 	return w.executions
 }
 
 // Channel of stalls for a given Watchdog. As above, the channel must
 // be drained while the Watchdog is running.
-func (w *Watchdog) Stalls() <- chan *Stall {
+func (w *Watchdog) Stalls() <-chan *Stall {
 	return w.stalls
 }
 
@@ -85,10 +86,10 @@ func (w *Watchdog) run() {
 func (w *Watchdog) runTask(task *Task) {
 	ticker := time.NewTicker(task.Schedule)
 	schedule := make(chan time.Time, 1)
-	stallTimer := time.NewTimer(task.Schedule + 1 * time.Millisecond)
+	stallTimer := time.NewTimer(task.Schedule + 1*time.Millisecond)
 	stallTimer.Stop()
 	taskDone := make(chan bool, 1)
-	go func () {
+	go func() {
 		for startedAt := range schedule {
 			stallTimer.Reset(task.Timeout)
 			err := task.Command(startedAt)
@@ -102,26 +103,28 @@ func (w *Watchdog) runTask(task *Task) {
 		taskDone <- true
 	}()
 	var startedAt time.Time
-	monitor: for {
+monitor:
+	for {
 		select {
-		case <- w.done:
+		case <-w.done:
 			ticker.Stop()
 			close(schedule)
 			break monitor
-		case stalledAt := <- stallTimer.C:
+		case stalledAt := <-stallTimer.C:
 			w.stalls <- &Stall{task, startedAt, stalledAt}
-		case startedAt = <- ticker.C:
+		case startedAt = <-ticker.C:
 			select {
 			case schedule <- startedAt:
 			default:
 			}
 		}
 	}
-	cleanup: for {
+cleanup:
+	for {
 		select {
-		case stalledAt := <- stallTimer.C:
+		case stalledAt := <-stallTimer.C:
 			w.stalls <- &Stall{task, startedAt, stalledAt}
-		case <- taskDone:
+		case <-taskDone:
 			stallTimer.Stop()
 			break cleanup
 		}
