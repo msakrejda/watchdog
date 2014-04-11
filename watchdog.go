@@ -65,19 +65,21 @@ func (w *Watchdog) runTask(task *Task) {
 	schedule := make(chan time.Time, 1)
 	stallTimer := time.NewTimer(task.Schedule + 1 * time.Millisecond)
 	stallTimer.Stop()
+	taskDone := make(chan bool, 1)
 	go func () {
-		for startedAt := range schedule {
+		work: for startedAt := range schedule {
 			stallTimer.Reset(task.Timeout)
 			err := task.Command(startedAt)
 			stallTimer.Reset(task.Schedule)
 			finishedAt := time.Now()
 			select {
 			case <- w.done:
-				return
+				break work
 			default:
 				w.executions <- &Execution{task, startedAt, finishedAt, err}
 			}
 		}
+		taskDone <- true
 	}()
 	monitor: for {
 		var startedAt time.Time
@@ -97,6 +99,7 @@ func (w *Watchdog) runTask(task *Task) {
 	}
 	close(schedule)
 	stallTimer.Stop()
+	<- taskDone
 	w.sync.Done()
 }
 
