@@ -95,10 +95,7 @@ func (w *Watchdog) runTask(task *Task) {
 			err := task.Command(startedAt)
 			stallTimer.Reset(task.Schedule)
 			finishedAt := time.Now()
-			select {
-			case w.executions <- &Execution{task, startedAt, finishedAt, err}:
-			default:
-			}
+			w.executions <- &Execution{task, startedAt, finishedAt, err}
 		}
 		taskDone <- true
 	}()
