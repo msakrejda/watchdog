@@ -86,12 +86,11 @@ func (w *Watchdog) run() {
 func (w *Watchdog) runTask(task *Task) {
 	ticker := time.NewTicker(task.Schedule)
 	schedule := make(chan time.Time, 1)
-	stallTimer := time.NewTimer(task.Schedule + 1*time.Millisecond)
-	stallTimer.Stop()
+	stallTimer := new(time.Timer)
 	taskDone := make(chan bool, 1)
 	go func() {
 		for startedAt := range schedule {
-			stallTimer.Reset(task.Timeout)
+			stallTimer = time.NewTimer(task.Timeout)
 			err := task.Command(startedAt)
 			stallTimer.Reset(task.Schedule)
 			finishedAt := time.Now()
