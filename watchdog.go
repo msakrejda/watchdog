@@ -89,17 +89,18 @@ func (w *Watchdog) runTask(task *Task) {
 	stallTimer := time.NewTimer(task.Schedule + 1*time.Millisecond)
 	stallTimer.Stop()
 	taskDone := make(chan bool, 1)
+	var startedAt time.Time
 	go func() {
-		for startedAt := range schedule {
+		for startedAt = range schedule {
 			stallTimer.Reset(task.Timeout)
 			err := task.Command(startedAt)
-			stallTimer.Reset(task.Schedule)
+			stallTimer.Reset(task.Schedule + 100*time.Millisecond)
 			finishedAt := time.Now()
 			w.executions <- &Execution{task, startedAt, finishedAt, err}
 		}
 		taskDone <- true
 	}()
-	var startedAt time.Time
+	var nextStart time.Time
 monitor:
 	for {
 		select {
@@ -108,10 +109,12 @@ monitor:
 			close(schedule)
 			break monitor
 		case stalledAt := <-stallTimer.C:
-			w.stalls <- &Stall{task, startedAt, stalledAt}
-		case startedAt = <-ticker.C:
+			if stalledAt.Sub(startedAt) >= task.Timeout {
+				w.stalls <- &Stall{task, startedAt, stalledAt}
+			}
+		case nextStart = <-ticker.C:
 			select {
-			case schedule <- startedAt:
+			case schedule <- nextStart:
 			default:
 			}
 		}
@@ -120,7 +123,9 @@ cleanup:
 	for {
 		select {
 		case stalledAt := <-stallTimer.C:
-			w.stalls <- &Stall{task, startedAt, stalledAt}
+			if stalledAt.Sub(startedAt) >= task.Timeout {
+				w.stalls <- &Stall{task, startedAt, stalledAt}
+			}
 		case <-taskDone:
 			stallTimer.Stop()
 			break cleanup
