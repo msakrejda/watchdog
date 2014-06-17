@@ -86,14 +86,21 @@ func (w *Watchdog) run() {
 func (w *Watchdog) runTask(task *Task) {
 	ticker := time.NewTicker(task.Schedule)
 	schedule := make(chan time.Time, 1)
+	inflight := make(chan time.Time, 1)
 	stallTimer := time.NewTimer(task.Schedule + 1*time.Millisecond)
 	stallTimer.Stop()
 	taskDone := make(chan bool, 1)
+
 	go func() {
 		for startedAt := range schedule {
 			stallTimer.Reset(task.Timeout)
+			inflight <- startedAt
 			err := task.Command(startedAt)
-			stallTimer.Reset(task.Schedule)
+			stallTimer.Stop()
+			select {
+			case <-inflight:
+			default: // Stall must have drained it
+			}
 			finishedAt := time.Now()
 			w.executions <- &Execution{task, startedAt, finishedAt, err}
 		}
@@ -108,7 +115,14 @@ monitor:
 			close(schedule)
 			break monitor
 		case stalledAt := <-stallTimer.C:
-			w.stalls <- &Stall{task, startedAt, stalledAt}
+			select {
+			case startedAt = <-inflight:
+				if stalledAt.Sub(startedAt) >= task.Timeout {
+					w.stalls <- &Stall{task, startedAt, stalledAt}
+				}
+			default: // Race condition with finish of execution, so no stall
+			}
+
 		case startedAt = <-ticker.C:
 			select {
 			case schedule <- startedAt:
@@ -120,7 +134,14 @@ cleanup:
 	for {
 		select {
 		case stalledAt := <-stallTimer.C:
-			w.stalls <- &Stall{task, startedAt, stalledAt}
+			select {
+			case startedAt = <-inflight:
+				if stalledAt.Sub(startedAt) >= task.Timeout {
+					w.stalls <- &Stall{task, startedAt, stalledAt}
+				}
+			default: // Race condition with finish of execution, so no stall
+			}
+
 		case <-taskDone:
 			stallTimer.Stop()
 			break cleanup
