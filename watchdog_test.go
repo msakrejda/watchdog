@@ -25,11 +25,11 @@ var workloads = []struct {
 	{
 		Tasks: []taskInfo{
 			{
-				Schedule: 10 * time.Millisecond,
+				Schedule: 100 * time.Millisecond,
 				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
-					{Error: nil, Duration: time.Millisecond},
-					{Error: nil, Duration: time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
 				},
 			},
 		},
@@ -37,12 +37,12 @@ var workloads = []struct {
 	{
 		Tasks: []taskInfo{
 			{
-				Schedule: 10 * time.Millisecond,
+				Schedule: 100 * time.Millisecond,
 				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
-					{Error: nil, Duration: time.Millisecond},
-					{Error: errors.New("oh snap"), Duration: time.Millisecond},
-					{Error: nil, Duration: time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
+					{Error: errors.New("oh snap"), Duration: 10 * time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
 				},
 			},
 		},
@@ -50,30 +50,30 @@ var workloads = []struct {
 	{
 		Tasks: []taskInfo{
 			{
-				Schedule: 12 * time.Millisecond,
+				Schedule: 120 * time.Millisecond,
 				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
-					{Error: errors.New("oh snap"), Duration: time.Millisecond},
-					{Error: nil, Duration: time.Millisecond},
+					{Error: errors.New("oh snap"), Duration: 10 * time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
 				},
 			},
 			{
-				Schedule: 7 * time.Millisecond,
+				Schedule: 70 * time.Millisecond,
 				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
-					{Error: errors.New("oh snap"), Duration: time.Millisecond},
-					{Error: nil, Duration: time.Millisecond},
-					{Error: errors.New("oh snap"), Duration: time.Millisecond},
-					{Error: nil, Duration: time.Millisecond},
+					{Error: errors.New("oh snap"), Duration: 10 * time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
+					{Error: errors.New("oh snap"), Duration: 10 * time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
 				},
 			},
 			{
-				Schedule: 9 * time.Millisecond,
+				Schedule: 90 * time.Millisecond,
 				Timeout:  1 * time.Hour,
 				Executions: []execInfo{
-					{Error: nil, Duration: time.Millisecond},
-					{Error: errors.New("oh snap"), Duration: time.Millisecond},
-					{Error: nil, Duration: time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
+					{Error: errors.New("oh snap"), Duration: 10 * time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
 				},
 			},
 		},
@@ -81,10 +81,10 @@ var workloads = []struct {
 	{
 		Tasks: []taskInfo{
 			{
-				Schedule: 10 * time.Millisecond,
-				Timeout:  5 * time.Millisecond,
+				Schedule: 100 * time.Millisecond,
+				Timeout:  50 * time.Millisecond,
 				Executions: []execInfo{
-					{Error: nil, Duration: 7 * time.Millisecond},
+					{Error: nil, Duration: 70 * time.Millisecond},
 				},
 			},
 		},
@@ -92,32 +92,32 @@ var workloads = []struct {
 	{
 		Tasks: []taskInfo{
 			{
-				Schedule: 10 * time.Millisecond,
-				Timeout:  3 * time.Millisecond,
+				Schedule: 100 * time.Millisecond,
+				Timeout:  30 * time.Millisecond,
 				Executions: []execInfo{
-					{Error: nil, Duration: 4 * time.Millisecond},
-					{Error: nil, Duration: 1 * time.Millisecond},
+					{Error: nil, Duration: 40 * time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
 				},
 			},
 			{
-				Schedule: 10 * time.Millisecond,
-				Timeout:  2 * time.Millisecond,
+				Schedule: 100 * time.Millisecond,
+				Timeout:  20 * time.Millisecond,
 				Executions: []execInfo{
-					{Error: nil, Duration: 1 * time.Millisecond},
-					{Error: nil, Duration: 3 * time.Millisecond},
+					{Error: nil, Duration: 10 * time.Millisecond},
+					{Error: nil, Duration: 30 * time.Millisecond},
 				},
 			},
 		},
 	},
 	{
 		// This test ensures we don't bail early on a stall during Stop()
-		WatchDuration: 12 * time.Millisecond,
+		WatchDuration: 120 * time.Millisecond,
 		Tasks: []taskInfo{
 			{
-				Schedule: 10 * time.Millisecond,
-				Timeout:  7 * time.Millisecond,
+				Schedule: 100 * time.Millisecond,
+				Timeout:  70 * time.Millisecond,
 				Executions: []execInfo{
-					{Error: nil, Duration: 5 * time.Millisecond},
+					{Error: nil, Duration: 50 * time.Millisecond},
 				},
 			},
 		},
@@ -221,7 +221,7 @@ func TestScheduling(t *testing.T) {
 						i, task, j, exec.Task)
 					continue
 				}
-				slack := 3 * time.Millisecond
+				slack := 30 * time.Millisecond
 				stepDelay := time.Duration(j+1) * task.Schedule
 				if expected := start.Add(stepDelay); !within(expected, exec.StartedAt, slack) {
 					t.Errorf("workload %d task %v: expected execution %d start to be within %v of schedule; got within %v",
